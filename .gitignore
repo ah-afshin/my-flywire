@@ -1,0 +1,10 @@
+data/
+venv/
+venv314/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.cache/
+*.csv
