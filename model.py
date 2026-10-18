@@ -1,11 +1,11 @@
 import pandas as pd
 import yaml
 from brian2 import NeuronGroup, Synapses, SpikeMonitor, Network, PoissonInput
-from brian2 import mV, ms, Hz, store, restore
+from brian2 import mV, ms, Hz
 
 
 class SSN:
-    def __init__(self, config_path):
+    def __init__(self, config_path, save_initial_weights=True):
         with open(config_path) as f:
             config = yaml.safe_load(f)
         self.config = config
@@ -49,9 +49,8 @@ class SSN:
             * config['LIF-params']['w_syn_mV'] * mV
         )
 
-        self.W_0 = self.S.w[:].copy()
+        self.W_0 = self.S.w[:].copy() if save_initial_weights else None
         self.P = []
-        self.trial_num = 0
 
         self.M = SpikeMonitor(self.G)
         self.N = Network(self.G, self.S, self.M)
@@ -74,7 +73,11 @@ class SSN:
             self.N.add(p)
 
     def silence_neuron(self, neu_idx):
-        self.S.w = self.W_0
+        if len(neu_idx)==0:
+            return
+        
+        if self.W_0 is not None:
+            self.S.w = self.W_0
 
         for i in neu_idx:
             self.S.w[f'i == {i}'] = 0*mV
@@ -93,10 +96,18 @@ class SSN:
             name=f'baseline',
             restore_random_state=False
         )
-        self.trial_num += 1
 
     def __call__(self):
-        # self.N = Network(self.G, self.S, self.M, *self.P)
-        self.N.store(f'trial_{self.trial_num}')
         self.N.run(duration=self.config['general']['t_run_ms']*ms)
         return {k: v for k, v in self.M.spike_trains().items() if len(v)}
+
+
+def run_trial_parallel(config_path, exc_idx, slnc_idx, r_poi, w_poi):
+    # each process/task gets its own independent network.
+    # this network is used for only one trial,
+    # so no baseline storage or restoration is needed.
+    snn = SSN(config_path, False)
+    snn.define_poisson(exc_idx, r_poi*Hz, w_poi*mV)
+    if len(slnc_idx) > 0:
+        snn.silence_neuron(slnc_idx)
+    return snn()
