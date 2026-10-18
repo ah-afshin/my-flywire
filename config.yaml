@@ -2,8 +2,8 @@ general:
   name: sugarR_reconstruct_experiment
   t_run_ms: 1000
   
-  comp-path: ./2023_03_23_completeness_630_final.csv
-  conn-path: ./2023_03_23_connectivity_630_final.parquet
+  comp-path: ./data/2023_03_23_completeness_630_final.csv
+  conn-path: ./data/2023_03_23_connectivity_630_final.parquet
   output-dir: ./outputs
 
 

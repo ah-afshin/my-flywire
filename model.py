@@ -54,9 +54,13 @@ class SSN:
         self.trial_num = 0
 
         self.M = SpikeMonitor(self.G)
-        self.N: Network = None
+        self.N = Network(self.G, self.S, self.M)
+        self._baseline_stored = False
 
     def define_poisson(self, exc_idx:list[int], r_poi, w_poi):
+        if self._baseline_stored:
+            raise RuntimeError("Poisson inputs must be configured before storing the baseline.")
+    
         for i in exc_idx:
             p = PoissonInput(
                 target=self.G[i], 
@@ -67,6 +71,7 @@ class SSN:
             )
             self.G[i].rfc = 0 * ms
             self.P.append(p)
+            self.N.add(p)
 
     def silence_neuron(self, neu_idx):
         self.S.w = self.W_0
@@ -74,18 +79,24 @@ class SSN:
         for i in neu_idx:
             self.S.w[f'i == {i}'] = 0*mV
 
+    def store_baseline(self):
+        # save the state after all poisson inputs have been added,
+        # but before trial-specific changes such as silencing.
+        self.N.store('baseline')
+        self._baseline_stored = True
+
     def restore(self):
+        if not self._baseline_stored:
+            raise RuntimeError("Call store_baseline() before running trials.")
+        
         self.N.restore(
-            name=f'trial_{self.trial_num}',
+            name=f'baseline',
             restore_random_state=False
         )
-        self.S.w = self.W_0
-        self.G.rfc = self.config['LIF-params']['t_refractory_ms'] * ms
-        self.P = []
         self.trial_num += 1
 
     def __call__(self):
-        self.N = Network(self.G, self.S, self.M, *self.P)
+        # self.N = Network(self.G, self.S, self.M, *self.P)
         self.N.store(f'trial_{self.trial_num}')
-        self.N.run(duration=self.config['general']['t_run'])
+        self.N.run(duration=self.config['general']['t_run_ms']*ms)
         return {k: v for k, v in self.M.spike_trains().items() if len(v)}
