@@ -8,7 +8,7 @@ from brian2 import Hz, mV, ms
 from model import SSN, run_trial_parallel
 
 
-n_run = 10
+n_run = 30
 sugar_neurons = [
     720575940624963786,
     720575940630233916,
