@@ -44,12 +44,17 @@ class SSN:
         idx_pre = conn_df.loc[:, 'Presynaptic_Index'].values
         idx_post = conn_df.loc[:, 'Postsynaptic_Index'].values
         self.S.connect(i=idx_pre, j=idx_post)
-        self.S.w = conn_df.loc[:,'Excitatory x Connectivity'].values * config['LIF-params']['w_syn']
-        
+        self.S.w = (
+            conn_df.loc[:,'Excitatory x Connectivity'].values
+            * config['LIF-params']['w_syn_mV'] * mV
+        )
+
+        self.W_0 = self.S.w[:].copy()
         self.P = []
         self.trial_num = 0
-        store(f'trial {self.trial_num}')
+
         self.M = SpikeMonitor(self.G)
+        self.N: Network = None
 
     def define_poisson(self, exc_idx:list[int], r_poi, w_poi):
         for i in exc_idx:
@@ -64,17 +69,23 @@ class SSN:
             self.P.append(p)
 
     def silence_neuron(self, neu_idx):
+        self.S.w = self.W_0
+
         for i in neu_idx:
             self.S.w[f'i == {i}'] = 0*mV
 
     def restore(self):
+        self.N.restore(
+            name=f'trial_{self.trial_num}',
+            restore_random_state=False
+        )
+        self.S.w = self.W_0
+        self.G.rfc = self.config['LIF-params']['t_refractory_ms'] * ms
         self.P = []
-        restore(f'trial {self.trial_num}')
         self.trial_num += 1
-        self.M.clear()
-        store(f'trial {self.trial_num}')
-    
+
     def __call__(self):
-        net = Network(self.G, self.S, self.M, *self.P)
-        net.run(duration=self.config['general']['t_run'])
+        self.N = Network(self.G, self.S, self.M, *self.P)
+        self.N.store(f'trial_{self.trial_num}')
+        self.N.run(duration=self.config['general']['t_run'])
         return {k: v for k, v in self.M.spike_trains().items() if len(v)}
