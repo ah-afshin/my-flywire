@@ -1,6 +1,8 @@
 general:
   name: sugarR_reconstruct_experiment
+  random_seed: 418
   t_run_ms: 1000
+  n_run: 30
   
   comp-path: ./data/2023_03_23_completeness_630_final.csv
   conn-path: ./data/2023_03_23_connectivity_630_final.parquet
